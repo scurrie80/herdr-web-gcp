@@ -4,14 +4,44 @@ Secure, phone-friendly browser access to [herdr-web-ui](https://github.com/devsw
 running on a dev box that is only reachable on your Tailscale tailnet, with
 nothing exposed on the dev box and no VPN client needed on the phone.
 
-```
-Browser ──HTTPS──▶ Cloud Run herdr-proxy (*.run.app, IAP enabled on the service)
-                        │  Go: tsnet (embedded Tailscale, ephemeral tag:herdr-proxy node)
-                        │      + httputil.ReverseProxy
-                        ▼  tailnet (WireGuard over DERP)
-                   devbox.<tailnet>.ts.net:443   (Tailscale Serve on the dev box)
-                        ▼
-                   herdr-web-ui on 127.0.0.1:7317 ──▶ herdr server (your sessions)
+```mermaid
+flowchart LR
+    browser["📱 Browser<br/>anywhere"]
+
+    subgraph gcp["Google Cloud · one project"]
+        direction LR
+        iap["<b>Gate 1 · IAP</b><br/>Google sign-in<br/>allow-listed accounts"]
+        subgraph run["Cloud Run · herdr-proxy · 0–1 instances"]
+            direction LR
+            jwt["<b>Gate 2 · JWT check</b><br/>signature · audience<br/>issuer · email"]
+            rp["Reverse proxy<br/>HTTP + WebSocket<br/>headers stripped"]
+            tsnet["tsnet node<br/><i>tag:herdr-proxy</i><br/>ephemeral"]
+        end
+        sm["Secret Manager<br/>OAuth client secret"]
+    end
+
+    subgraph devbox["Dev box on your tailnet"]
+        direction LR
+        serve["Tailscale Serve<br/>:443 · TLS"]
+        ui["<b>Gate 3 · herdr-web-ui</b><br/>127.0.0.1:7317<br/>device pairing"]
+        herdr["herdr server<br/>your sessions"]
+    end
+
+    browser -- "HTTPS<br/>*.run.app" --> iap
+    iap -- "signed<br/>IAP JWT" --> jwt
+    jwt --> rp --> tsnet
+    sm -. "TS_AUTHKEY<br/>at start" .-> tsnet
+    tsnet -- "WireGuard over DERP<br/>policy: tag:herdr-proxy → dev box:443 only" --> serve
+    serve --> ui --> herdr
+
+    classDef gate fill:#fff4e5,stroke:#e67e22,stroke-width:2px,color:#000
+    classDef cloud fill:#eef4ff,stroke:#4a7bd0,color:#000
+    classDef local fill:#eafaf0,stroke:#2e9e5b,color:#000
+    classDef secret fill:#f4f4f4,stroke:#888,stroke-dasharray:4 3,color:#000
+    class iap,jwt,ui gate
+    class rp,tsnet cloud
+    class serve,herdr local
+    class sm secret
 ```
 
 Three gates, in order:
