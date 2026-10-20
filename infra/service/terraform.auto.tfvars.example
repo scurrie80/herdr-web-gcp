@@ -1,0 +1,13 @@
+# Copy to terraform.auto.tfvars in this directory and fill in. Infra Manager
+# uploads the directory, so *.auto.tfvars are picked up automatically.
+# Everything not set here keeps the default from variables.tf.
+
+project_id = "my-herdr-project"
+region     = "us-central1"
+
+# herdr-web-ui as reachable on the tailnet: the dev box's Tailscale Serve URL.
+upstream = "https://devbox.your-tailnet.ts.net"
+
+# Who may pass IAP (IAM member syntax). The proxy's own JWT check accepts the
+# same emails unless iap_allowed_emails is set explicitly.
+iap_members = ["user:you@example.com"]

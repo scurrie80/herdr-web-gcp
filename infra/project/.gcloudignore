@@ -1,0 +1,6 @@
+# Infra Manager uploads --local-source verbatim; keep local-only files out.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+backend_override.tf
+.terraform.lock.hcl

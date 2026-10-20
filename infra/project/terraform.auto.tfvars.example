@@ -1,0 +1,8 @@
+# Copy to terraform.auto.tfvars in this directory and fill in.
+billing_account = "XXXXXX-XXXXXX-XXXXXX"
+
+# Exactly one of these, or neither for a project outside any organization.
+folder_id = ""
+org_id    = ""
+
+# project_id_prefix = "herdr-web"

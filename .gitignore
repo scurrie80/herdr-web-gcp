@@ -1,0 +1,23 @@
+# Terraform (Infra Manager keeps state; nothing local is authoritative)
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+backend_override.tf
+crash.log
+.terraform.lock.hcl
+
+# Local deploy config and anything secret-shaped
+.env
+*.pem
+*-credentials.json
+client_secret*.json
+
+# Go build output
+/src/herdr-iap-proxy/herdr-iap-proxy
+/bin/
+
+# Editor / AI tooling
+.claude/
+.vscode/
+.idea/

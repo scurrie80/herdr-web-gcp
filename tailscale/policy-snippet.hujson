@@ -1,0 +1,58 @@
+// Snippet to merge into your tailnet policy file (Admin console -> Access
+// controls). Nothing in this repo applies it. It introduces tag:herdr-proxy:
+// the ephemeral tsnet node that the Cloud Run service joins the tailnet as,
+// fronted by Google IAP. Its only purpose is to reach the dev box's Tailscale
+// Serve endpoint; it is never a dst and never a src for anything else.
+//
+// Assumptions, adjust to taste:
+//   - the dev box running herdr-web-ui carries tag:herdr-web (or substitute
+//     its hostname / tailnet IP as the dst);
+//   - herdr-web-ui is exposed on the dev box with `tailscale serve`, so the
+//     proxy only ever needs TCP 443 (Serve terminates TLS with a Let's
+//     Encrypt cert and forwards to the app on localhost).
+//
+// After merging, create the OAuth client in the admin console:
+//   Settings -> OAuth clients -> Generate OAuth client, scope "Auth Keys: Write",
+//   tag tag:herdr-proxy only. The secret (tskey-client-...) goes into Secret
+//   Manager via `./deploy.sh secret`; the proxy appends
+//   ?ephemeral=true&preauthorized=true itself, so the node needs no manual
+//   device approval even if device approval is on for your tailnet.
+{
+	"grants": [
+		// The Cloud Run proxy node may open herdr-web-ui over Serve (HTTPS 443)
+		// and nothing else. Google IAP + an IAP JWT check in the proxy gate who
+		// gets this far; herdr-web-ui itself then requires a paired device (the
+		// node is tagged, so Serve adds no user login).
+		{
+			"src": ["tag:herdr-proxy"],
+			"dst": ["tag:herdr-web"],
+			"ip":  ["tcp:443"],
+		},
+	],
+
+	"tagOwners": {
+		// Ephemeral tsnet node inside the Cloud Run service; registered with an
+		// OAuth client, so it is tag-owned and never user-owned.
+		"tag:herdr-proxy": ["autogroup:admin"],
+		// The dev box. Keep your existing owner list if the tag already exists.
+		"tag:herdr-web": ["autogroup:admin"],
+	},
+
+	"tests": [
+		{
+			// The proxy reaches herdr-web-ui over Serve only: not the app's own
+			// port, not SSH.
+			"src":    "tag:herdr-proxy",
+			"accept": ["tag:herdr-web:443"],
+			"deny": [
+				"tag:herdr-web:7317", // herdr-web-ui's own listener (localhost only anyway)
+				"tag:herdr-web:22",
+			],
+		},
+		{
+			// Nobody reaches the proxy node itself: it has no tailnet listeners.
+			"src":  "autogroup:member",
+			"deny": ["tag:herdr-proxy:443", "tag:herdr-proxy:22"],
+		},
+	],
+}
