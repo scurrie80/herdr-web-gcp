@@ -178,3 +178,7 @@ Steps done in a web console rather than from the repo are marked **(H)**.
   and the herdr session is unaffected.
 - **"Setting IAM permissions failed" on the first IAP enable.** Service-agent
   timing in a fresh project; re-run `./deploy.sh apply`.
+
+## License
+
+[MIT](LICENSE).
