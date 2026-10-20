@@ -1,8 +1,8 @@
 # infra/
 
-Terraform for herdr-web-gcp, executed via **GCP Infrastructure Manager** rather
-than raw Terraform: state is stored and locked by the service, so no `backend`
-block is defined anywhere here. Applies are manual, driven by `../deploy.sh`.
+Terraform for herdr-web-gcp, executed via **GCP Infrastructure Manager**: state
+is stored and locked by the service, so no `backend` block is defined here.
+Applies are driven by `../deploy.sh`.
 
 ```
 infra/
@@ -52,7 +52,7 @@ and `roles/billing.user` on the billing account, and `INFRA_PROJECT` in `.env`
 must be a different, existing project (Infra Manager cannot run in a project
 it is about to create).
 
-## Handover values (committed, never read from cross-root state)
+## Inputs
 
 | Value | Source | Goes in |
 |---|---|---|
@@ -60,29 +60,25 @@ it is about to create).
 | `upstream`, `iap_members` | you | `service/terraform.auto.tfvars` |
 | `image` (by digest) | `../deploy.sh image` | `service/image.auto.tfvars` |
 
-## Why two roots, and why two phases
+The two roots are wired by these committed values, never by reading each
+other's state.
 
-`google_project` is the one resource where a bad plan burns quota (deleted IDs
-stay reserved for 30 days), so it has its own root and state, with
-`deletion_policy = "PREVENT"` plus `prevent_destroy`.
+## Two phases
 
-`service/` is applied twice the first time. Infra Manager has no `-target`, and
-Cloud Run validates both the image and the secret version when the service is
-created, neither of which can exist before the Artifact Registry repo and the
-secret do. So:
+`service/` is applied twice the first time, because Cloud Run validates both
+the image and the secret version when the service is created, and neither can
+exist before the Artifact Registry repo and the secret do:
 
 1. **Phase 1** (`./deploy.sh base`, `image.auto.tfvars` absent): APIs, service
    agents, runtime SA, secret (metadata only), Artifact Registry.
 2. Push the image (`./deploy.sh image`) and add the secret version
    (`./deploy.sh secret`).
-3. **Phase 2** (`./deploy.sh apply`): the Cloud Run service with IAP enabled,
-   the IAP service agent's `run.invoker`, and the `iap.httpsResourceAccessor`
-   members.
+3. **Phase 2** (`./deploy.sh apply`): the Cloud Run service with IAP enabled
+   and its IAM bindings.
 
-The switch is `var.image`: empty means `count = 0` on the service. It is set
-only through the committed `image.auto.tfvars`, never through
-`--input-values`, because an apply that forgets the value would destroy the
-service.
+`image.auto.tfvars` is the switch: empty or missing means no service. Keep it
+committed and never pass `image` via `--input-values`; an apply that forgets
+the value would destroy the service.
 
 ## What is deliberately not in Terraform
 
